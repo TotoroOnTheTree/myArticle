@@ -1,0 +1,119 @@
+
+
+获取bean入口
+org.springframework.beans.factory.BeanFactory#getBean
+	org.springframework.beans.factory.support.DefaultListableBeanFactory#getBean
+		org.springframework.beans.factory.support.DefaultListableBeanFactory#resolveBean
+		
+		
+
+目标：看BeanFactory的创建流程
+容器初始化入口
+org.springframework.context.support.AbstractApplicationContext#refresh
+	org.springframework.context.support.AbstractApplicationContext#obtainFreshBeanFactory
+		org.springframework.context.support.AbstractRefreshableApplicationContext#refreshBeanFactory
+		org.springframework.context.support.AbstractRefreshableApplicationContext#createBeanFactory （这里创建了一个org.springframework.beans.factory.support.DefaultListableBeanFactory）
+		org.springframework.context.support.AbstractXmlApplicationContext#loadBeanDefinitions 这里加载xml中的bean定义
+		
+		
+		
+目标：从xml加载beanDefinitions流程
+
+	org.springframework.context.support.AbstractApplicationContext#obtainFreshBeanFactory
+		org.springframework.context.support.AbstractRefreshableApplicationContext#refreshBeanFactory
+		org.springframework.context.support.AbstractRefreshableApplicationContext#createBeanFactory
+			org.springframework.context.support.AbstractXmlApplicationContext#loadBeanDefinitions(DefaultListableBeanFactory)
+				org.springframework.context.support.AbstractXmlApplicationContext#loadBeanDefinitions(XmlBeanDefinitionReader)
+					org.springframework.beans.factory.support.AbstractBeanDefinitionReader#loadBeanDefinitions(String[])
+						org.springframework.beans.factory.xml.XmlBeanDefinitionReader#loadBeanDefinitions
+							org.springframework.beans.factory.xml.XmlBeanDefinitionReader#doLoadBeanDefinitions
+								org.springframework.beans.factory.xml.XmlBeanDefinitionReader#doLoadDocument
+								org.springframework.beans.factory.xml.XmlBeanDefinitionReader#registerBeanDefinitions
+									org.springframework.beans.factory.xml.DefaultBeanDefinitionDocumentReader#registerBeanDefinitions
+									org.springframework.beans.factory.xml.DefaultBeanDefinitionDocumentReader#doRegisterBeanDefinitions
+									org.springframework.beans.factory.xml.DefaultBeanDefinitionDocumentReader#parseDefaultElement
+									org.springframework.beans.factory.xml.DefaultBeanDefinitionDocumentReader#processBeanDefinition (解析为beanDefinition对象)
+										org.springframework.beans.factory.support.BeanDefinitionReaderUtils#registerBeanDefinition （将bean difinition 注册到map）
+											org.springframework.beans.factory.support.DefaultListableBeanFactory#registerBeanDefinition
+			
+			
+beanFactory 的初始化及循环依赖
+org.springframework.context.support.AbstractApplicationContext#refresh
+	org.springframework.context.support.AbstractApplicationContext#finishBeanFactoryInitialization
+		org.springframework.beans.factory.support.DefaultListableBeanFactory#preInstantiateSingletons
+			org.springframework.beans.factory.support.AbstractBeanFactory#doGetBean
+			org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#getSingleton
+			org.springframework.beans.factory.support.AbstractBeanFactory#createBean
+				org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#createBean
+					org.springframework.beans.factory.support.AbstractBeanFactory#doResolveBeanClass
+						org.springframework.beans.factory.support.AbstractBeanDefinition#resolveBeanClass （在这里加载的类信息，Class.forName()）
+						org.springframework.beans.factory.support.AbstractBeanDefinition#prepareMethodOverrides(在这里检查是否有方法需要被代理)
+						org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#resolveBeforeInstantiation （实例前检查是否要做些处理）
+						org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#doCreateBean （开始创建bean）
+							org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#createBeanInstance
+							org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#instantiateBean
+								org.springframework.beans.factory.support.SimpleInstantiationStrategy#instantiate 
+									org.springframework.beans.BeanUtils#instantiateClass (调用具体构造器创建实例)
+							org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#addSingletonFactory 				这里开始处理循环依赖问题，加入三级缓存
+							org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#populateBean				//填充bean的属性
+								org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#applyPropertyValues	//具体设置属性的地方
+									org.springframework.beans.factory.support.BeanDefinitionValueResolver#resolveValueIfNecessary	
+										org.springframework.beans.factory.support.AbstractBeanFactory#getBean						//获取依赖的bean
+											org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#addSingletonFactory 				将依赖的bean加入三级缓存
+												org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#addSingleton					将依赖bean从三级缓存删除，放入单例池
+									org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#registerDependentBean	将依赖bean注册进入当前bean中
+							org.springframework.beans.factory.support.DefaultSingletonBeanRegistry#addSingleton						这里移除缓存中的bean，放入单例池
+					
+						
+
+									
+											
+目标：从注解扫描注册bean
+org.springframework.context.annotation.AnnotationConfigApplicationContext#AnnotationConfigApplicationContext(basePackages)
+	org.springframework.context.annotation.ClassPathBeanDefinitionScanner#scan
+	org.springframework.context.annotation.ClassPathBeanDefinitionScanner#doScan
+		org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider#findCandidateComponents
+		org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider#scanCandidateComponents
+			org.springframework.context.support.GenericApplicationContext#getResources
+				org.springframework.context.support.AbstractApplicationContext#getResources
+					org.springframework.core.io.support.PathMatchingResourcePatternResolver#getResources
+					org.springframework.core.io.support.PathMatchingResourcePatternResolver#findPathMatchingResources
+					org.springframework.core.io.support.PathMatchingResourcePatternResolver#getResources
+					org.springframework.core.io.support.PathMatchingResourcePatternResolver#findAllClassPathResources
+					org.springframework.core.io.support.PathMatchingResourcePatternResolver#doFindAllClassPathResources
+					org.springframework.core.io.support.PathMatchingResourcePatternResolver#doFindPathMatchingFileResources
+					org.springframework.core.io.support.PathMatchingResourcePatternResolver#doFindMatchingFileSystemResources
+					org.springframework.core.io.support.PathMatchingResourcePatternResolver#doRetrieveMatchingFiles
+		org.springframework.context.annotation.ClassPathBeanDefinitionScanner#postProcessBeanDefinition （后置处理器中设置参数）
+			org.springframework.beans.factory.support.AbstractBeanDefinition#applyDefaults //设置bean的默认属性
+			org.springframework.context.annotation.AnnotationConfigUtils#processCommonDefinitionAnnotations //检查注解，设置相应的属性，比如lazy、role、dependOn。。
+			org.springframework.context.annotation.AnnotationConfigUtils#applyScopedProxyMode //检查是否需要代理
+			org.springframework.context.annotation.ClassPathBeanDefinitionScanner#registerBeanDefinition //注册beanDefinition
+				org.springframework.context.support.GenericApplicationContext#registerBeanDefinition
+					org.springframework.beans.factory.support.DefaultListableBeanFactory#registerBeanDefinition
+			
+			
+		
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+			
